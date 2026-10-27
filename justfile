@@ -4,7 +4,7 @@ default:
 # every test that needs no server
 test: unit integration
 
-# the bit math, colocated with the code. no I/O.
+# the per-token bit math, colocated with the code. no I/O.
 unit:
     uv run pytest src -q
 

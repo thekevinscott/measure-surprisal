@@ -1,9 +1,13 @@
-"""measure_surprisal "the string" --context "what comes before" --base-url URL"""
+"""Print per-token bits as JSON, then their total.
+
+measure_surprisal "the string" --context "what comes before" --base-url URL
+"""
 
 from __future__ import annotations
 
 import argparse
 import asyncio
+import json
 import sys
 
 from openai import APIConnectionError
@@ -23,10 +27,11 @@ def main() -> None:
 
     try:
         client = Client(base_url=args.base_url, model=args.model, api_key=args.api_key)
-        bits = asyncio.run(measure_surprisal(args.text, context=args.context, client=client))
+        pairs = asyncio.run(measure_surprisal(args.text, context=args.context, client=client))
     except APIConnectionError:
         sys.exit(f"measure_surprisal: could not reach {args.base_url} -- is the server up?")
     except Exception as exc:
         sys.exit(f"measure_surprisal: {exc}")
 
-    print(f"{bits:.4f}")
+    print(json.dumps([(token, round(bits, 4)) for token, bits in pairs], ensure_ascii=False))
+    print(f"{sum(bits for _, bits in pairs):.4f}")

@@ -21,6 +21,7 @@ def describe_measure_surprisal_against_a_fake_llm():
     async def test_bits_are_positive_and_finite(llm):
         llm.replies_to(CONTEXT + " lazy dog", "vllm_completions_echo")
         bits = await measure_surprisal(" lazy dog", context=CONTEXT, client=llm.client)
+        bits = sum(bits for _, bits in bits)
         assert 0.0 < bits < 1000.0
 
 
@@ -28,7 +29,9 @@ def describe_measure_surprisal_against_a_fake_llm():
         llm.replies_to(CONTEXT + " lazy dog", "vllm_completions_echo")
         llm.replies_to(CONTEXT + " lazy hydroelectric dam", "vllm_completions_echo_surprising")
         expected = await measure_surprisal(" lazy dog", context=CONTEXT, client=llm.client)
+        expected = sum(bits for _, bits in expected)
         surprising = await measure_surprisal(" lazy hydroelectric dam", context=CONTEXT, client=llm.client)
+        surprising = sum(bits for _, bits in surprising)
         assert expected < surprising
 
 
@@ -36,13 +39,16 @@ def describe_measure_surprisal_against_a_fake_llm():
         llm.replies_to(CONTEXT + " lazy dog", "vllm_completions_echo")
         llm.replies_to(OTHER_CONTEXT + " lazy dog", "vllm_completions_echo_other_context")
         with_context = await measure_surprisal(" lazy dog", context=CONTEXT, client=llm.client)
+        with_context = sum(bits for _, bits in with_context)
         without = await measure_surprisal(" lazy dog", context=OTHER_CONTEXT, client=llm.client)
+        without = sum(bits for _, bits in without)
         assert with_context < without
 
 
     async def test_scores_the_text_and_not_the_context(llm):
         llm.replies_to(CONTEXT + " lazy dog", "vllm_completions_echo")
         bits = await measure_surprisal(" lazy dog", context=CONTEXT, client=llm.client)
+        bits = sum(bits for _, bits in bits)
         assert bits == pytest.approx(EXPECTED_BITS, abs=1e-4)
 
 
@@ -66,3 +72,28 @@ def describe_measure_surprisal_against_a_fake_llm():
         llm.replies("llamacpp_completions_echo")
         with pytest.raises(NoPromptLogprobs):
             await measure_surprisal(" lazy dog", context=CONTEXT, client=llm.client)
+
+
+@pytest.mark.parametrize("fixture", [
+    "vllm_completions_echo",
+    "vllm_completions_echo_surprising",
+    "vllm_completions_echo_other_context",
+])
+@pytest.mark.parametrize("context", ["", CONTEXT])
+async def test_pairs_preserve_recorded_tokens_and_old_total(llm, fixture, context):
+    import json
+    import math
+    from pathlib import Path
+
+    recording = json.loads((Path(__file__).parent / "__fixtures__" / f"{fixture}.json").read_text())
+    lp = recording["choices"][0]["logprobs"]
+    llm.replies(fixture)
+    pairs = await measure_surprisal("recorded text", context=context, client=llm.client)
+    indices = [i for i, offset in enumerate(lp["text_offset"]) if offset >= len(context)]
+    assert [token for token, _ in pairs] == [lp["tokens"][i] for i in indices]
+    expected = [0.0 if lp["token_logprobs"][i] is None else
+                -lp["token_logprobs"][i] / math.log(2) for i in indices]
+    assert [bits for _, bits in pairs] == pytest.approx(expected)
+    old_total = sum(-lp["token_logprobs"][i] / math.log(2)
+                    for i in indices if lp["token_logprobs"][i] is not None)
+    assert sum(bits for _, bits in pairs) == pytest.approx(old_total)

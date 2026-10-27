@@ -15,17 +15,22 @@ def describe_measure_surprisal_against_a_live_server():
     async def test_bits_are_positive_and_finite(client):
         """A wrong engine fails here, loudly."""
         bits = await measure_surprisal(" lazy dog", context=CONTEXT, client=client)
+        bits = sum(bits for _, bits in bits)
         assert 0.0 < bits < 1000.0
 
 
     async def test_the_expected_continuation_is_cheaper_than_a_surprising_one(client):
         expected = await measure_surprisal(" lazy dog", context=CONTEXT, client=client)
+        expected = sum(bits for _, bits in expected)
         surprising = await measure_surprisal(" lazy hydroelectric dam", context=CONTEXT, client=client)
+        surprising = sum(bits for _, bits in surprising)
         assert expected < surprising
 
 
     async def test_context_makes_the_same_string_cheaper(client):
         text = " lazy dog"
         with_context = await measure_surprisal(text, context=CONTEXT, client=client)
+        with_context = sum(bits for _, bits in with_context)
         without = await measure_surprisal(text, context="Recipe for bread. Step 4:", client=client)
+        without = sum(bits for _, bits in without)
         assert with_context < without

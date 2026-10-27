@@ -1,7 +1,7 @@
 [project]
 name = "measure-surprisal"
-version = "0.1.0"
-description = "Bits to encode a string, optionally conditioned on a context"
+version = "0.2.0"
+description = "Per-token bits to encode a string, optionally conditioned on a context"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
