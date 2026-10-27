@@ -28,10 +28,11 @@ class NoPromptLogprobs(RuntimeError):
 
 
 class Echo(NamedTuple):
-    """What the server charged for each prompt token, and where each one starts."""
+    """Server token strings, their logprobs, and starting text offsets."""
 
     token_logprobs: list[float | None]
     text_offsets: list[int]
+    tokens: list[str]
 
 
 def _server_version(base_url: str) -> str:
@@ -86,4 +87,4 @@ class Client:
                 f"{self.base_url} returned no logprobs for prompt tokens. Needs vLLM; "
                 "llama.cpp's server ignores `echo`, and OpenAI's API dropped it."
             )
-        return Echo(lp["token_logprobs"], lp["text_offset"])
+        return Echo(lp["token_logprobs"], lp["text_offset"], lp["tokens"])
